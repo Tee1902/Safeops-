@@ -1,0 +1,28 @@
+import {
+  Role,
+  User,
+  IncidentType,
+  Incident,
+  IncidentAttachment,
+  Assignment,
+  IncidentLog,
+  Notification,
+  RevokedToken,
+  AuthSession,
+  UserAuditLog,
+  UploadedFile,
+} from './index.js';
+export const entities = [
+  Role,
+  User,
+  IncidentType,
+  Incident,
+  IncidentAttachment,
+  Assignment,
+  IncidentLog,
+  Notification,
+  RevokedToken,
+  AuthSession,
+  UserAuditLog,
+  UploadedFile,
+];

@@ -1,0 +1,26 @@
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+!.env.production.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Dependencies, generated files, and local data
+node_modules/
+dist/
+build/
+coverage/
+.test-dist/
+.tmp/
+.temp/
+uploads/
+*.tsbuildinfo
+*.log
+
+# Editor and operating system files
+.idea/
+.DS_Store
+Thumbs.db

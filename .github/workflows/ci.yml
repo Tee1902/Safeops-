@@ -1,0 +1,92 @@
+name: SafeOps CI
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
+permissions:
+  contents: read
+jobs:
+  layout:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.detect.outputs.backend }}
+      frontend: ${{ steps.detect.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: detect
+        shell: bash
+        run: |
+          if [ -f backend/package.json ]; then echo 'backend=backend' >> "$GITHUB_OUTPUT"; else echo 'backend=.' >> "$GITHUB_OUTPUT"; fi
+          if [ -f frontend/package.json ]; then echo 'frontend=true' >> "$GITHUB_OUTPUT"; else echo 'frontend=false' >> "$GITHUB_OUTPUT"; fi
+  backend:
+    needs: layout
+    runs-on: ubuntu-latest
+    services:
+      postgres-test:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: safeops_test
+          POSTGRES_PASSWORD: safeops_test_only
+          POSTGRES_DB: safeops_test
+        ports: ['55432:5432']
+        options: >-
+          --health-cmd "pg_isready -U safeops_test -d safeops_test"
+          --health-interval 2s --health-timeout 5s --health-retries 30
+    defaults:
+      run:
+        working-directory: ${{ needs.layout.outputs.backend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: ${{ needs.layout.outputs.backend }}/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npm run build
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm audit --omit=dev --audit-level=high
+      - run: npm run test:cov
+      - run: npm run test:e2e
+      - run: npm run docs:export
+      - name: Check OpenAPI is up to date
+        run: git diff --exit-code -- docs/openapi.json docs/SafeOps.postman_collection.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage-and-openapi
+          path: |
+            ${{ needs.layout.outputs.backend }}/coverage
+            ${{ needs.layout.outputs.backend }}/docs/openapi.json
+  frontend:
+    needs: layout
+    if: needs.layout.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npx tsc --noEmit
+      - run: npm run lint
+      - run: npm test -- --runInBand
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:3000/api
+          NEXT_PUBLIC_WS_URL: http://localhost:3000
+  required:
+    if: always()
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - name: All applicable checks must pass
+        env:
+          BACKEND: ${{ needs.backend.result }}
+          FRONTEND: ${{ needs.frontend.result }}
+        run: test "$BACKEND" = success && { test "$FRONTEND" = success || test "$FRONTEND" = skipped; }

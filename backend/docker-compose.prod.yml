@@ -1,0 +1,75 @@
+x-backend: &backend
+  image: safeops-backend:local
+  build: { context: . }
+  env_file: [.env.production]
+  environment:
+    NODE_ENV: production
+    PORT: 3000
+    DB_HOST: postgres
+    DB_PORT: 5432
+    DB_SYNCHRONIZE: 'false'
+    DB_LOGGING: 'false'
+    UPLOAD_DIR: /app/uploads
+    COOKIE_SECURE: 'true'
+    TRUST_PROXY_HOPS: 1
+  networks: [api, database]
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  read_only: true
+  tmpfs: [/tmp]
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:?Set DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD}
+      POSTGRES_DB: ${DB_DATABASE:?Set DB_DATABASE}
+    volumes: [postgres16_prod_data:/var/lib/postgresql/data]
+    networks: [database]
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  migrate:
+    <<: *backend
+    command: [npm, run, migration:run:prod]
+    restart: 'no'
+    depends_on:
+      postgres: { condition: service_healthy }
+  backend:
+    <<: *backend
+    restart: unless-stopped
+    volumes: [uploads:/app/uploads]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?Set SITE_ADDRESS to your DNS hostname}
+      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [api]
+    depends_on:
+      backend: { condition: service_healthy }
+volumes:
+  postgres16_prod_data:
+  uploads:
+  caddy_data:
+  caddy_config:
+networks:
+  api:
+  database: { internal: true }

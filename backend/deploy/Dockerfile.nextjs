@@ -1,0 +1,23 @@
+# Dùng làm Dockerfile của repo Next.js sau khi FE1 bàn giao source + package-lock.json.
+# next.config.ts phải bật output: 'standalone'; tạo thư mục public nếu chưa có.
+FROM node:24-bookworm-slim AS dependencies
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --ignore-scripts
+FROM dependencies AS build
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_WS_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL
+COPY . .
+RUN npm run build
+FROM node:24-bookworm-slim AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+ENV HOSTNAME=0.0.0.0
+COPY --from=build --chown=node:node /app/public ./public
+COPY --from=build --chown=node:node /app/.next/standalone ./
+COPY --from=build --chown=node:node /app/.next/static ./.next/static
+USER node
+EXPOSE 3000
+CMD ["node", "server.js"]
