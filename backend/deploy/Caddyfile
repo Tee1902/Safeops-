@@ -6,6 +6,9 @@
   handle /api/* {
     reverse_proxy backend:3000
   }
+  handle /socket.io/* {
+    reverse_proxy backend:3000
+  }
   handle {
     respond "SafeOps" 200
   }

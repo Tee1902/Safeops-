@@ -16,7 +16,8 @@ coverage/
 .test-dist/
 .tmp/
 .temp/
-uploads/
+/uploads/
+/backend/uploads/
 *.tsbuildinfo
 *.log
 

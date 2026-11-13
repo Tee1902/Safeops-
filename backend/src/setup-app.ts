@@ -1,4 +1,5 @@
-import { ClassSerializerInterceptor, ValidationPipe } from '@nestjs/common';
+import { ValidationPipe } from '@nestjs/common';
+import { ResponseSerializerInterceptor } from './common/response-serializer.interceptor.js';
 import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
@@ -8,9 +9,11 @@ import { GlobalExceptionFilter } from './common/global-exception.filter.js';
 import { TransformInterceptor } from './common/transform.interceptor.js';
 import { setupSwagger } from './swagger.js';
 import type { Request, Response, NextFunction } from 'express';
+import { SafeOpsSocketAdapter } from './gateway/socket.adapter.js';
 
 export function configureApplication(app: NestExpressApplication) {
   const config = app.get(ConfigService);
+  app.useWebSocketAdapter(new SafeOpsSocketAdapter(app));
   app.setGlobalPrefix('api');
   app.set(
     'trust proxy',
@@ -44,7 +47,7 @@ export function configureApplication(app: NestExpressApplication) {
     }),
   );
   app.useGlobalInterceptors(
-    new ClassSerializerInterceptor(app.get(Reflector)),
+    new ResponseSerializerInterceptor(app.get(Reflector)),
     new TransformInterceptor(),
   );
   app.useGlobalFilters(new GlobalExceptionFilter());

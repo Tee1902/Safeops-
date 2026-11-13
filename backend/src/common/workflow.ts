@@ -12,6 +12,7 @@ import {
   User,
 } from '../database/entities/index.js';
 import type { AuthenticatedUser } from '../auth/decorators/current-user.decorator.js';
+import { PageDto } from './page.dto.js';
 
 export const INCIDENT_STATUSES = [
   'PENDING',
@@ -94,20 +95,20 @@ export async function notify(
 ) {
   const repo = manager.getRepository(Notification);
   const ids = [...new Set(userIds)];
-  if (ids.length)
-    await repo.save(
-      ids.map((userId) =>
-        repo.create({
-          userId,
-          incidentId: incident.id,
-          type,
-          title: incident.title,
-          message,
-          isRead: false,
-          readAt: null,
-        }),
-      ),
-    );
+  if (!ids.length) return [];
+  return repo.save(
+    ids.map((userId) =>
+      repo.create({
+        userId,
+        incidentId: incident.id,
+        type,
+        title: incident.title,
+        message,
+        isRead: false,
+        readAt: null,
+      }),
+    ),
+  );
 }
 export async function managementIds(manager: EntityManager) {
   const users = await manager.getRepository(User).find({
@@ -117,5 +118,5 @@ export async function managementIds(manager: EntityManager) {
   return users.map((user) => user.id);
 }
 export function paginated<T>(items: T[], total: number, page = 1, limit = 10) {
-  return { items, total, page, limit, totalPages: Math.ceil(total / limit) };
+  return new PageDto(items, total, page, limit);
 }

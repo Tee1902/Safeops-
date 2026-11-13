@@ -10,9 +10,11 @@ import { IncidentLog } from '../database/entities/incident-log.entity.js';
 
 import { IncidentsController } from './incidents.controller.js';
 import { IncidentsService } from './incidents.service.js';
+import { WorkflowEventsModule } from '../gateway/workflow-events.module.js';
 
 @Module({
   imports: [
+    WorkflowEventsModule,
     AuthModule,
 
     TypeOrmModule.forFeature([Incident, IncidentType, User, IncidentLog]),

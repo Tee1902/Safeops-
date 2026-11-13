@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { DataSource, EntityManager } from 'typeorm';
+import { DataSource, EntityManager, In } from 'typeorm';
 import {
   Incident,
   IncidentLog,
@@ -29,9 +29,14 @@ import { CreateIncidentDto } from './dto/create-incident.dto.js';
 import { UpdateIncidentDto } from './dto/update-incident.dto.js';
 import { IncidentQueryDto } from './dto/incident-query.dto.js';
 import { PaginationDto } from '../users/dto/pagination.dto.js';
+import { WorkflowEventsService } from '../gateway/workflow-events.service.js';
+import { presentIncidentListItem } from './incident.presenter.js';
 @Injectable()
 export class IncidentsService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly events: WorkflowEventsService,
+  ) {}
   private async checkType(
     manager: EntityManager,
     id: number,
@@ -49,7 +54,7 @@ export class IncidentsService {
     return type;
   }
   async create(dto: CreateIncidentDto, reporterId: string) {
-    return this.dataSource.transaction(async (manager) => {
+    const change = await this.dataSource.transaction(async (manager) => {
       const user = await manager
         .getRepository(User)
         .findOneBy({ id: reporterId, isActive: true });
@@ -107,15 +112,17 @@ export class IncidentsService {
         null,
         'Tạo báo cáo sự cố.',
       );
-      await notify(
+      const notifications = await notify(
         manager,
         await managementIds(manager),
         incident,
         'INCIDENT_CREATED',
         'Có báo cáo sự cố mới cần xác minh.',
       );
-      return incident;
+      return { incident, notifications };
     });
+    await this.events.committed(change, 'created', true);
+    return change.incident;
   }
   async findAll(query: IncidentQueryDto, user: AuthenticatedUser) {
     if (query.from && query.to && new Date(query.from) > new Date(query.to))
@@ -123,8 +130,7 @@ export class IncidentsService {
     const { page, limit } = query;
     const qb = this.dataSource
       .getRepository(Incident)
-      .createQueryBuilder('incident')
-      .leftJoinAndSelect('incident.incidentType', 'incidentType');
+      .createQueryBuilder('incident');
     if (!isManager(user)) {
       if (user.role === 'SECURITY')
         qb.andWhere(
@@ -167,10 +173,20 @@ export class IncidentsService {
     const [items, total] = await qb
       .orderBy('incident.created_at', 'DESC')
       .addOrderBy('incident.id', 'DESC')
-      .skip((page - 1) * limit)
-      .take(limit)
+      .offset((page - 1) * limit)
+      .limit(limit)
       .getManyAndCount();
-    return paginated(items, total, page, limit);
+    // Load the small type catalog once for this page, avoiding a joined DISTINCT
+    // pagination query and repeatedly hydrating the same type for every row.
+    if (items.length) {
+      const types = await this.dataSource.getRepository(IncidentType).findBy({
+        id: In([...new Set(items.map((item) => item.incidentTypeId))]),
+      });
+      const byId = new Map(types.map((type) => [type.id, type]));
+      for (const item of items)
+        item.incidentType = byId.get(item.incidentTypeId)!;
+    }
+    return paginated(items.map(presentIncidentListItem), total, page, limit);
   }
   async findOne(id: string, user: AuthenticatedUser) {
     const incident = await getIncident(this.dataSource.manager, id);
@@ -181,8 +197,9 @@ export class IncidentsService {
     return Object.assign(incident, { incidentType });
   }
   async update(id: string, dto: UpdateIncidentDto, user: AuthenticatedUser) {
-    return this.dataSource.transaction(async (manager) => {
+    const change = await this.dataSource.transaction(async (manager) => {
       const incident = await getIncident(manager, id, true);
+      const wasCritical = incident.severity === 'CRITICAL';
       if (!isManager(user) && incident.reporterId !== user.id)
         throw new ForbiddenException('Chỉ được sửa báo cáo của bạn.');
       requireStatus(incident.status, ['PENDING']);
@@ -234,14 +251,20 @@ export class IncidentsService {
         'Cập nhật báo cáo.',
         changes,
       );
-      return incident;
+      return {
+        incident,
+        notifications: [],
+        criticalAlert: !wasCritical && incident.severity === 'CRITICAL',
+      };
     });
+    await this.events.committed(change, 'updated', change.criticalAlert);
+    return change.incident;
   }
   async review(id: string, user: AuthenticatedUser, reason?: string) {
     requireManager(user);
     if (reason !== undefined && !reason.trim())
       throw new BadRequestException('Cần lý do từ chối.');
-    return this.dataSource.transaction(async (manager) => {
+    const change = await this.dataSource.transaction(async (manager) => {
       const incident = await getIncident(manager, id, true);
       requireStatus(incident.status, ['PENDING']);
       incident.status = reason === undefined ? 'VERIFIED' : 'REJECTED';
@@ -257,7 +280,7 @@ export class IncidentsService {
         'PENDING',
         incident.rejectionReason,
       );
-      await notify(
+      const notifications = await notify(
         manager,
         [incident.reporterId],
         incident,
@@ -266,8 +289,10 @@ export class IncidentsService {
           ? 'Báo cáo đã được xác minh.'
           : `Báo cáo bị từ chối: ${incident.rejectionReason}`,
       );
-      return incident;
+      return { incident, notifications };
     });
+    await this.events.committed(change, 'updated');
+    return change.incident;
   }
   async logs(id: string, user: AuthenticatedUser, query: PaginationDto) {
     const incident = await getIncident(this.dataSource.manager, id);
@@ -285,7 +310,7 @@ export class IncidentsService {
   }
   async close(id: string, user: AuthenticatedUser, note?: string) {
     requireManager(user);
-    return this.dataSource.transaction(async (manager) => {
+    const change = await this.dataSource.transaction(async (manager) => {
       const incident = await getIncident(manager, id, true);
       requireStatus(incident.status, ['RESOLVED']);
       incident.status = 'CLOSED';
@@ -298,14 +323,16 @@ export class IncidentsService {
         'RESOLVED',
         note?.trim() || null,
       );
-      await notify(
+      const notifications = await notify(
         manager,
         [incident.reporterId],
         incident,
         'INCIDENT_CLOSED',
         'Sự cố đã được đóng.',
       );
-      return incident;
+      return { incident, notifications };
     });
+    await this.events.committed(change, 'updated');
+    return change.incident;
   }
 }

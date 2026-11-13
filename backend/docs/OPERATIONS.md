@@ -74,7 +74,7 @@ Repo hiện chưa có Next.js. Khi FE1 bàn giao `../frontend`, bật `output: '
 docker compose --env-file .env.production -f docker-compose.prod.yml -f deploy/docker-compose.frontend.yml up -d --build
 ```
 
-Các `NEXT_PUBLIC_*` là biến công khai được nhúng ở build time, không chứa bí mật; đổi URL phải build lại frontend. Overlay thêm Next.js và đổi Caddy để proxy route FE và Socket.IO. Socket.IO chỉ hoạt động sau khi BE3 triển khai gateway server.
+Các `NEXT_PUBLIC_*` là biến công khai được nhúng ở build time, không chứa bí mật; đổi URL phải build lại frontend. Overlay thêm Next.js và đổi Caddy để proxy route FE và Socket.IO. Gateway BE3-A dùng `/socket.io/` trên cùng port API; cả Caddy mặc định và overlay đều proxy đường dẫn này. Chạy một backend instance và xem [hợp đồng/vận hành realtime](WEBSOCKET-CONTRACT.md) trước khi tăng replica.
 
 ## Backup, bảo trì và sự cố
 

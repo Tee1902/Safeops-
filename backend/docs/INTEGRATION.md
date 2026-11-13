@@ -36,7 +36,7 @@ Dev/test PostgreSQL chạy bằng Docker. Bộ test dùng cổng 55432, database
 ## Phạm vi chưa có đủ đầu vào
 
 - Hai nguồn đều không có frontend Next.js; chỉ có Dockerfile/overlay để tích hợp khi có frontend.
-- Gateway mới có helper xác thực; chưa có Socket.IO transport/event handler, email xác minh/push, map/export hoặc phân tích hiệu suất. SSO được đặc tả BE1 hoãn sang giai đoạn 2.
+- BE3-A đã bổ sung Socket.IO transport/JWT/rooms, publish sau commit, notifications/email cảnh báo và consent vị trí. Xem [WebSocket contract](WEBSOCKET-CONTRACT.md) và [kết quả BE3](BE3-VALIDATION.md). Email xác minh/push, map UI/export và phân tích hiệu suất chưa có; SSO được đặc tả BE1 hoãn sang giai đoạn 2.
 - Không có domain/DNS/chứng chỉ/secrets server hay GitHub remote phục vụ rollout; chưa xác minh TLS thực tế, cấu hình branch protection hoặc UAT với nhóm.
 - Node trên máy là 24.12.0, thấp hơn engine khuyến nghị 24.15; các bước cục bộ đã chạy nhưng nên nâng Node theo README khi cài mới. CI/Docker dùng Node 24 hiện hành.
 

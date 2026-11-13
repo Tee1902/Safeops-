@@ -25,9 +25,13 @@ import {
 } from '../common/workflow.js';
 import { AssignmentQueryDto, CreateAssignmentDto } from './assignments.dto.js';
 import { PaginationDto } from '../users/dto/pagination.dto.js';
+import { WorkflowEventsService } from '../gateway/workflow-events.service.js';
 @Injectable()
 export class AssignmentsService {
-  constructor(private readonly db: DataSource) {}
+  constructor(
+    private readonly db: DataSource,
+    private readonly events: WorkflowEventsService,
+  ) {}
   async securityUsers(query: PaginationDto) {
     const { page, limit } = query;
     const [items, total] = await this.db.getRepository(User).findAndCount({
@@ -45,7 +49,7 @@ export class AssignmentsService {
     user: AuthenticatedUser,
   ) {
     requireManager(user);
-    return this.db.transaction(async (manager) => {
+    const change = await this.db.transaction(async (manager) => {
       const incident = await getIncident(manager, incidentId, true);
       requireStatus(incident.status, ['VERIFIED']);
       const repo = manager.getRepository(Assignment);
@@ -85,15 +89,17 @@ export class AssignmentsService {
         assignment.note,
         { assignmentId: assignment.id, securityUserId: security.id },
       );
-      await notify(
+      const notifications = await notify(
         manager,
         [security.id, incident.reporterId],
         incident,
         'ASSIGNMENT_CREATED',
         'Sự cố đã được phân công cho nhân viên an ninh.',
       );
-      return assignment;
+      return { incident, assignment, notifications };
     });
+    await this.events.committed(change, 'assigned');
+    return change.assignment;
   }
   async mine(user: AuthenticatedUser, query: AssignmentQueryDto) {
     const { page, limit } = query;
@@ -153,7 +159,7 @@ export class AssignmentsService {
     if (action === 'cancel') requireManager(user);
     else if (user.role !== 'SECURITY')
       throw new ForbiddenException('Cần quyền SECURITY.');
-    return this.db.transaction(async (manager) => {
+    const change = await this.db.transaction(async (manager) => {
       const repo = manager.getRepository(Assignment);
       const initial = await repo.findOneBy({ id });
       if (!initial) throw new NotFoundException('Không tìm thấy phân công.');
@@ -214,14 +220,16 @@ export class AssignmentsService {
         ...(await managementIds(manager)),
       ];
       if (action === 'cancel') recipients.push(assignment.securityUserId);
-      await notify(
+      const notifications = await notify(
         manager,
         recipients,
         incident,
         action === 'complete' ? 'INCIDENT_RESOLVED' : 'ASSIGNMENT_UPDATED',
         `Cập nhật phân công: ${assignment.status}.`,
       );
-      return { assignment, incident };
+      return { assignment, incident, notifications };
     });
+    await this.events.committed(change, 'updated');
+    return { assignment: change.assignment, incident: change.incident };
   }
 }

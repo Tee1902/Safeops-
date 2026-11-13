@@ -311,7 +311,7 @@ export function createSwaggerDocument(app: INestApplication) {
     .setTitle('SafeOps API')
     .setVersion('1.0.0')
     .setDescription(
-      'SafeOps: Auth/RBAC, Users/Admin, Upload, Incidents, Assignments, Attachments, Notifications và Dashboard. JSON dùng success/data hoặc success/error. Refresh token chỉ nằm trong cookie HttpOnly.',
+      'SafeOps: Auth/RBAC, Users/Admin, Upload, Incidents, Assignments, Attachments, Notifications và Dashboard. JSON dùng success/data hoặc success/error. Refresh token chỉ nằm trong cookie HttpOnly. Socket.IO cùng host, path /socket.io/, auth.token là access JWT; sự kiện incident:created, incident:updated, assignment:created, assignment:updated, notification:created, notification:read, security:location, security:location-cleared. Khi realtime:ready phải đồng bộ lại REST. Chi tiết: backend/docs/WEBSOCKET-CONTRACT.md.',
     )
     .addBearerAuth()
     .addCookieAuth(
@@ -377,6 +377,7 @@ export function createSwaggerDocument(app: INestApplication) {
         404: 'Không tìm thấy',
         409: 'Xung đột',
         413: 'Ảnh quá lớn',
+        422: 'Không thể xử lý dữ liệu',
         429: 'Quá nhiều yêu cầu',
         500: 'Lỗi hệ thống',
         503: 'Dịch vụ chưa sẵn sàng',

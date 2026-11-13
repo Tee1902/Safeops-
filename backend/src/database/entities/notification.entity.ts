@@ -13,6 +13,7 @@ import { Incident } from './incident.entity.js';
 
 @Entity('notifications')
 @Index('IDX_notifications_user_read', ['userId', 'isRead'])
+@Index('IDX_notifications_user_created_id', ['userId', 'createdAt', 'id'])
 export class Notification {
   @PrimaryGeneratedColumn('uuid')
   id: string;

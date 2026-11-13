@@ -86,4 +86,4 @@ docker compose --env-file .env.production -f docker-compose.prod.yml up -d --bui
 
 Compose production dùng DB/volume riêng, chạy migration trước backend, Caddy cấp TLS, backend chạy non-root. Không dùng volume PostgreSQL 17 dev cho image PostgreSQL 16 production. Xem [vận hành](docs/OPERATIONS.md). Có template Dockerfile Next.js trong `deploy`, cần source frontend để sử dụng.
 
-Repository và ZIP đều không có frontend Next.js. Gateway hiện cung cấp helper xác thực để tích hợp; chưa mở Socket.IO, chưa có email/push, map/export/performance analytics hoặc SSO. Đây là các tính năng chưa có đặc tả/source hoàn chỉnh trong hai bản, không được coi là đã hoàn tất bằng việc ghép backend.
+Repository chưa có frontend Next.js. BE3-A đã bổ sung Socket.IO có JWT/room, event sau commit, notification stream, consent vị trí Security và email CRITICAL/phân công mới qua Nodemailer. Hợp đồng tích hợp tại [WEBSOCKET-CONTRACT.md](docs/WEBSOCKET-CONTRACT.md), kết quả kiểm thử và phần còn chờ môi trường tại [BE3-VALIDATION.md](docs/BE3-VALIDATION.md). Push mobile, email xác minh, map UI/export/performance analytics và SSO vẫn cần triển khai tương ứng.

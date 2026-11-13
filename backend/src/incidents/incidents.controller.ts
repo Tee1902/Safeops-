@@ -19,6 +19,7 @@ import { RejectIncidentDto } from './dto/review-incident.dto.js';
 import { UpdateIncidentDto } from './dto/update-incident.dto.js';
 import { IncidentsService } from './incidents.service.js';
 import { AssignmentNoteDto } from '../assignments/assignments.dto.js';
+import { PublicProjection } from '../common/response-serializer.interceptor.js';
 @ApiBearerAuth()
 @ApiTags('Incidents')
 @Roles('ADMIN', 'OPERATOR', 'SECURITY', 'REPORTER')
@@ -36,6 +37,8 @@ export class IncidentsController {
     };
   }
   @Get()
+  // The list service returns an explicit public projection, with no User entity.
+  @PublicProjection()
   list(
     @Query() query: IncidentQueryDto,
     @CurrentUser() user: AuthenticatedUser,

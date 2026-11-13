@@ -14,6 +14,7 @@ import { IncidentType } from './incident-type.entity.js';
 
 @Entity('incidents')
 @Index('IDX_incidents_reporter_created', ['reporterId', 'createdAt'])
+@Index('IDX_incidents_created_id', ['createdAt', 'id'])
 export class Incident {
   @PrimaryGeneratedColumn('uuid')
   id: string;

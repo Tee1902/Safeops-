@@ -7,7 +7,7 @@ Base URL `http://localhost:3000/api`. Swagger `/api/docs`, JSON `/api/docs-json`
 - JSON thành công: `{ "success": true, "data": ... }`. JSON lỗi: `{ "success": false, "error": { "code": "...", "message": "..." }, "path": "...", "timestamp": "..." }`.
 - Mọi route ngoài health/register/login/refresh cần `Authorization: Bearer <accessToken>`. Mọi JSON nhạy cảm dùng `Cache-Control: no-store`; nội dung tệp trả binary, không bọc JSON.
 - Chỉ nhận các thuộc tính trong DTO. UUID không hợp lệ trả 400. Phân trang `page=1`, `limit=10`, `limit≤100`. Danh sách nghiệp vụ trả `items,total,page,limit,totalPages`; Users trả `users`, audit trả `logs` thay `items`.
-- Mã lỗi: 400 `VALIDATION_ERROR`, 401 `UNAUTHORIZED`, 403 `FORBIDDEN`, 404 `NOT_FOUND`, 409 `CONFLICT`, 413 `PAYLOAD_TOO_LARGE`, 429 `RATE_LIMITED`, 500 `INTERNAL_ERROR`, 503 `SERVICE_UNAVAILABLE`.
+- Mã lỗi: 400 `VALIDATION_ERROR`, 401 `UNAUTHORIZED`, 403 `FORBIDDEN`, 404 `NOT_FOUND`, 409 `CONFLICT`, 413 `PAYLOAD_TOO_LARGE`, 422 `UNPROCESSABLE_ENTITY`, 429 `RATE_LIMITED`, 500 `INTERNAL_ERROR`, 503 `SERVICE_UNAVAILABLE`.
 - Email trim/lowercase; mật khẩu mới 8–72 byte UTF-8. Không trả passwordHash, tokenVersion hay refreshTokenHash.
 - Văn bản lưu plain text. Frontend render dưới dạng text và tránh chèn HTML trực tiếp.
 
@@ -86,10 +86,10 @@ POST tạo trả `data.incident`. Severity `LOW/MEDIUM/HIGH/CRITICAL`; loại OT
 | PATCH `/notifications/read-all` | Đánh dấu thông báo chính mình, trả `{updated}` |
 | GET `/dashboard/summary` | Admin/Operator; `{total,byStatus}` đủ 7 trạng thái |
 
-ACCEPTED là trạng thái phân công; sự cố vẫn ASSIGNED. Các thay đổi sự cố/phân công khóa sự cố trước, lưu trạng thái/log/notification trong cùng transaction. Security mất quyền thông qua phân công khi phân công bị hủy. Thông báo hiện qua REST; chưa gửi WebSocket/email/push.
+ACCEPTED là trạng thái phân công; sự cố vẫn ASSIGNED. Các thay đổi sự cố/phân công khóa sự cố trước, lưu trạng thái/log/notification trong cùng transaction. Security mất quyền thông qua phân công khi phân công bị hủy. Sau commit server phát event incident/assignment và notification tới room được phép. Đọc notification phát `notification:read` cho các phiên của chính người nhận. CRITICAL/phân công mới có email bất đồng bộ; push mobile chưa triển khai.
 
 Danh sách `/assignments/me` giữ bản ghi lịch sử CANCELLED nhưng bỏ đối tượng `incident` khi Security không phải người báo cáo sự cố đó. Khi xóa attachment có nguồn gốc `/uploads`, metadata upload cũng được xóa trong transaction để không gắn lại ảnh đã mất. ID dạng số phải nằm trong 1…2147483647.
 
-## Điểm tích hợp tiếp theo
+## Socket.IO và email
 
-`GatewayAuthService.authenticate(token)` dùng chung xác thực phiên cho gateway tương lai. Chưa mở Socket.IO server. Khi bổ sung, phải kiểm tra quyền subscribe theo incident, kiểm tra phiên trước mỗi event và chỉ emit sau commit. Không coi hợp đồng event dự kiến trong tài liệu tham khảo là server đã hoạt động. FE Next.js, email xác minh, SSO, map/export và phân tích hiệu suất chưa có implementation trong hai nguồn.
+Socket.IO dùng host/port của API, path `/socket.io/`, namespace `/`, JWT trong `auth.token`. Room do server tự gán, kiểm tra lại session trước gửi/nhận; reconnect yêu cầu tải lại REST. Consent vị trí chỉ dành Security có nhiệm vụ còn hiệu lực, không lưu tọa độ. Xem đầy đủ [WebSocket contract](WEBSOCKET-CONTRACT.md) và [báo cáo BE3](BE3-VALIDATION.md), gồm các giới hạn kiểm chứng còn lại. FE Next.js, email xác minh, SSO, map/export và phân tích hiệu suất vẫn cần phần triển khai tương ứng.

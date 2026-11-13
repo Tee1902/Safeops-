@@ -49,6 +49,7 @@ jobs:
       - run: npm audit --omit=dev --audit-level=high
       - run: npm run test:cov
       - run: npm run test:e2e
+      - run: npm run test:realtime
       - run: npm run docs:export
       - name: Check OpenAPI is up to date
         run: git diff --exit-code -- docs/openapi.json docs/SafeOps.postman_collection.json
