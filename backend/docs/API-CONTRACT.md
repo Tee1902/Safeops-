@@ -60,6 +60,8 @@ Sau khi gắn, người có quyền đọc sự cố được đọc ảnh. Meta
 | PATCH `/incident-types/:id` | Admin; cập nhật danh mục; không đổi mã OTHER |
 | POST `/incidents` | Mọi role; `{title,description?,incidentTypeId,latitude,longitude,address?,severity,attachmentIds?}` |
 | GET `/incidents` | Lọc `status,severity,incidentTypeId,reporterId,search,from,to,page,limit`, giữ scope |
+| GET `/incidents/map` | Cùng bộ lọc và quyền với danh sách; trả các điểm bản đồ, tọa độ kiểu number |
+| GET `/incidents/export` | Admin/Operator; cùng bộ lọc, bỏ page/limit; `format=csv` hoặc `xlsx`, tối đa 10.000 sự cố |
 | GET `/incidents/:id` | Chi tiết trong scope |
 | PATCH `/incidents/:id` | Chủ báo cáo/Admin/Operator, chỉ PENDING; các trường tạo ngoại trừ attachmentIds |
 | PATCH `/incidents/:id/verify` | Admin/Operator, PENDING → VERIFIED, body rỗng |
@@ -68,6 +70,14 @@ Sau khi gắn, người có quyền đọc sự cố được đọc ảnh. Meta
 | GET `/incidents/:id/logs` | Lịch sử trong scope, phân trang |
 
 POST tạo trả `data.incident`. Severity `LOW/MEDIUM/HIGH/CRITICAL`; loại OTHER cần mô tả. Latitude [-90,90], longitude [-180,180], tối đa 7 chữ số thập phân. `from≤to`. Đối với Reporter chỉ xem sự cố tự tạo. Security xem sự cố tự tạo hoặc có phân công chưa bị hủy. Admin/Operator xem toàn bộ. Bộ lọc không mở rộng scope. Chuyển trạng thái sai trả 409. Sự cố REJECTED/CLOSED là trạng thái cuối.
+
+Danh sách, Map và Export cùng hỗ trợ `south,north,west,east`: phải có đủ bốn giá trị; biên được tính bao gồm, `south≤north`; `west>east` là vùng qua kinh tuyến 180°. Không gửi tọa độ rỗng. Map phân trang như danh sách, sắp xếp createdAt/id giảm dần; `items` chỉ gồm `id,title,status,severity,incidentTypeId,latitude,longitude,createdAt,updatedAt`. Đây là vị trí sự cố, không phải vị trí trực tiếp của nhân viên.
+
+`search` tìm chuỗi con trong tiêu đề, mô tả và địa chỉ, không phân biệt hoa/thường hoặc dấu tiếng Việt, bao gồm đ/Đ và Unicode dạng tổ hợp. `%`, `_`, `\` là ký tự tìm kiếm thông thường, không phải wildcard. Cần chạy migration `VietnameseSearch1794820000000` trước khi dùng bản backend này. Tìm kiếm chuỗi con hiện dùng scan có lọc; chưa cam kết hiệu năng cho dữ liệu vượt quy mô đã đo.
+
+Các bộ lọc thời gian áp dụng lên `createdAt`, bao gồm cả hai đầu. Ngày `YYYY-MM-DD` được hiểu là 00:00:00 UTC của ngày đó, không tự mở rộng tới hết ngày. Với timestamp phải có `Z` hoặc offset, ví dụ `2026-11-01T00:00:00+07:00`. Khi dùng URL query, encode dấu `+` thành `%2B`. Muốn bao gồm cả ngày theo giờ Việt Nam, gửi mốc đầu/cuối ngày với offset rõ ràng.
+
+Export trả tệp binary, không bọc JSON: CSV UTF-8 có BOM hoặc Excel `.xlsx`. CSV quote và escape dấu nháy/xuống dòng, bảo vệ ô văn bản có thể bị hiểu thành công thức. Excel giữ tọa độ là số. Các mốc thời gian trong tệp dùng UTC; không xuất mô tả, danh tính người báo cáo hoặc trường tài khoản. Quá 10.000 kết quả trả 413, cần thu hẹp bộ lọc; không cắt dữ liệu âm thầm. Giới hạn 5 lần xuất/phút theo cơ chế Throttler hiện có.
 
 ## Assignments, Notifications, Dashboard
 
@@ -85,11 +95,14 @@ POST tạo trả `data.incident`. Severity `LOW/MEDIUM/HIGH/CRITICAL`; loại OT
 | PATCH `/notifications/:id/read` | Chỉ chính người nhận, giữ thời điểm đọc đầu tiên |
 | PATCH `/notifications/read-all` | Đánh dấu thông báo chính mình, trả `{updated}` |
 | GET `/dashboard/summary` | Admin/Operator; `{total,byStatus}` đủ 7 trạng thái |
+| GET `/dashboard/statistics` | Admin/Operator; lọc `status,severity,incidentTypeId,from,to`; `granularity=day` hoặc `month` |
 
 ACCEPTED là trạng thái phân công; sự cố vẫn ASSIGNED. Các thay đổi sự cố/phân công khóa sự cố trước, lưu trạng thái/log/notification trong cùng transaction. Security mất quyền thông qua phân công khi phân công bị hủy. Sau commit server phát event incident/assignment và notification tới room được phép. Đọc notification phát `notification:read` cho các phiên của chính người nhận. CRITICAL/phân công mới có email bất đồng bộ; push mobile chưa triển khai.
 
 Danh sách `/assignments/me` giữ bản ghi lịch sử CANCELLED nhưng bỏ đối tượng `incident` khi Security không phải người báo cáo sự cố đó. Khi xóa attachment có nguồn gốc `/uploads`, metadata upload cũng được xóa trong transaction để không gắn lại ảnh đã mất. ID dạng số phải nằm trong 1…2147483647.
 
+Statistics trả `total,byStatus,bySeverity,byType,trend,responseTimes,timezone,granularity`. Status và severity luôn có đủ khóa với 0; byType/trend chỉ có nhóm phát sinh dữ liệu. Ngày/tháng được nhóm theo `Asia/Saigon`, không theo timezone máy chủ. `responseTimes.verification` đo createdAt→verifiedAt; `responseTimes.resolution` đo createdAt→resolvedAt, đơn vị giây. Mỗi chỉ số gồm `samples,averageSeconds`; bỏ các bản ghi chưa có mốc kết thúc hoặc mốc trước createdAt, không coi chúng là thời gian 0. Không có mẫu thì averageSeconds=null. Bộ lọc chọn nhóm sự cố theo ngày tạo, không theo ngày giải quyết; không gọi chỉ số này là SLA hay thời gian nhận phân công.
+
 ## Socket.IO và email
 
-Socket.IO dùng host/port của API, path `/socket.io/`, namespace `/`, JWT trong `auth.token`. Room do server tự gán, kiểm tra lại session trước gửi/nhận; reconnect yêu cầu tải lại REST. Consent vị trí chỉ dành Security có nhiệm vụ còn hiệu lực, không lưu tọa độ. Xem đầy đủ [WebSocket contract](WEBSOCKET-CONTRACT.md) và [báo cáo BE3](BE3-VALIDATION.md), gồm các giới hạn kiểm chứng còn lại. FE Next.js, email xác minh, SSO, map/export và phân tích hiệu suất vẫn cần phần triển khai tương ứng.
+Socket.IO dùng host/port của API, path `/socket.io/`, namespace `/`, JWT trong `auth.token`. Room do server tự gán, kiểm tra lại session trước gửi/nhận; reconnect yêu cầu tải lại REST. Consent vị trí chỉ dành Security có nhiệm vụ còn hiệu lực, không lưu tọa độ. Xem đầy đủ [WebSocket contract](WEBSOCKET-CONTRACT.md) và [báo cáo BE3](BE3-VALIDATION.md), gồm các giới hạn kiểm chứng còn lại. FE Next.js, email xác minh, SSO và nghiệm thu giao diện vẫn cần phần triển khai tương ứng. Quy trình khôi phục dữ liệu nằm trong [BACKUP-RESTORE](BACKUP-RESTORE.md).

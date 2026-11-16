@@ -78,6 +78,8 @@ Các `NEXT_PUBLIC_*` là biến công khai được nhúng ở build time, khôn
 
 ## Backup, bảo trì và sự cố
 
+Quy trình có script và kiểm thử khôi phục: [BACKUP-RESTORE.md](BACKUP-RESTORE.md). Hướng dẫn mới này áp dụng cho backup database và UPLOAD_DIR, bao gồm named volume production. Dừng mọi writer trong lúc tạo snapshot, khôi phục vào database/thư mục riêng và kiểm tra trước khi chuyển ứng dụng.
+
 Phối hợp BE2 lập lịch `pg_dump` và backup volume upload, mã hóa và giới hạn quyền đọc backup; lưu chứng chỉ Caddy ở volume `caddy_data`. Thử restore vào môi trường tách biệt trước UAT. Rollback ứng dụng dùng image đã gắn tag phiên bản; không tự `migration:revert` trên production khi chưa đánh giá dữ liệu. Migration mới có thể đổi role/email nên rollback schema không thể khôi phục nguyên văn mọi giá trị email trước chuẩn hóa.
 
 Xóa session/blacklist đã hết hạn theo lịch bằng query tham số hóa/DB job đã duyệt retention, ví dụ điều kiện `expires_at < now() - interval '30 days'`. Không xóa audit theo session; retention audit/PII cần doanh nghiệp xác nhận. File mồ côi cần job so khớp `uploaded_files` với `incident_attachments` trước khi xóa; chưa bật job xóa tự động để tránh mất chứng cứ. Không dùng `docker compose down -v` trên môi trường có dữ liệu cần giữ.

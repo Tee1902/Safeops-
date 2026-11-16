@@ -7,6 +7,10 @@
   "license": "UNLICENSED",
   "type": "module",
   "scripts": {
+    "test:features": "npm run test:compile && node --experimental-vm-modules node_modules/jest/bin/jest.js --config jest.features.config.cjs --runInBand",
+    "test:backup": "npm run test:compile && node --test test/backup-restore.test.mjs",
+    "backup": "node scripts/backup-restore.mjs backup",
+    "restore": "node scripts/backup-restore.mjs restore",
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
@@ -51,6 +55,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "cookie-parser": "^1.4.7",
+    "exceljs": "^4.4.0",
     "file-type": "^22.3.0",
     "helmet": "^8.3.0",
     "multer": "^2.5.0",
@@ -86,6 +91,11 @@
     "supertest": "^7.0.0",
     "tsx": "^4.23.15",
     "typescript": "^6.0.2"
+  },
+  "overrides": {
+    "exceljs": {
+      "uuid": "^11.1.1"
+    }
   },
   "allowScripts": {
     "bcrypt@6.0.0": true,

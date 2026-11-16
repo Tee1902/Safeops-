@@ -1,6 +1,10 @@
 # SafeOps backend — bản tích hợp
 
-Kết quả rà soát mới nhất: [POST_INTEGRATION_REVIEW.md](docs/POST_INTEGRATION_REVIEW.md), 183/183 kiểm thử qua; có mô tả lỗi đã sửa, mức hoàn thiện và phần còn thiếu.
+Hướng dẫn kiểm thử, build, khởi động và lỗi schema local đã xác minh: [TEST-AND-RUN.md](docs/TEST-AND-RUN.md).
+
+Bổ sung BE2/BE3: Map API và lọc tọa độ, tìm kiếm tiếng Việt, Dashboard Statistics, Export CSV/XLSX, đồng bộ Notification và diễn tập Backup/Restore. Xem [hợp đồng API](docs/API-CONTRACT.md) và [quy trình Backup/Restore](docs/BACKUP-RESTORE.md). Khi cập nhật bản này cần cài lại dependencies theo lockfile, build và chạy migration mới trước khi khởi động; không tự chạy migration lên database dùng chung trong phiên phát triển này.
+
+Kết quả BE2/BE3 mới nhất: [BE2-BE3-DELIVERY.md](docs/BE2-BE3-DELIVERY.md). Báo cáo lần tích hợp trước: [POST_INTEGRATION_REVIEW.md](docs/POST_INTEGRATION_REVIEW.md), 183/183 kiểm thử ở thời điểm đó.
 
 NestJS + TypeORM + PostgreSQL. Đã ghép nền tảng trong `D:\SafeOps (1).zip` với luồng nghiệp vụ của dự án hiện tại. Chi tiết thay đổi và kiểm thử: [INTEGRATION.md](docs/INTEGRATION.md).
 

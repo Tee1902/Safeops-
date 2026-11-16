@@ -1,5 +1,9 @@
 import type { INestApplication } from '@nestjs/common';
 import {
+  dashboardStatisticsSchema,
+  mapMarkerSchema,
+} from './dashboard/dashboard.schemas.js';
+import {
   DocumentBuilder,
   SwaggerModule,
   type SchemaObject,
@@ -50,6 +54,7 @@ const userMessage: SchemaObject = {
   properties: { message: string, user },
 };
 const results: Record<string, SchemaObject> = {
+  'GET /api/dashboard/statistics': dashboardStatisticsSchema,
   'GET /api/health': {
     type: 'object',
     properties: { status: { ...string, enum: ['ok'] } },
@@ -269,6 +274,7 @@ const notification: SchemaObject = {
   },
 };
 Object.assign(results, {
+  'GET /api/incidents/map': pageOf(mapMarkerSchema),
   'GET /api/incidents': pageOf(incident),
   'GET /api/incidents/{id}': incident,
   'PATCH /api/incidents/{id}': incident,
@@ -349,6 +355,20 @@ export function createSwaggerDocument(app: INestApplication) {
               },
             },
           },
+        };
+      if (path === '/api/incidents/export' && method === 'get')
+        operation.responses['200'] = {
+          description:
+            'CSV UTF-8 with BOM or Excel XLSX; up to 10,000 incidents',
+          content: Object.fromEntries(
+            [
+              'text/csv',
+              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            ].map((mime) => [
+              mime,
+              { schema: { type: 'string', format: 'binary' } },
+            ]),
+          ),
         };
       if (
         ['/api/uploads/{filename}', '/api/attachments/{id}/content'].includes(

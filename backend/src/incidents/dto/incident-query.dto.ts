@@ -1,4 +1,5 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiPropertyOptional, IntersectionType } from '@nestjs/swagger';
+import { MapBoundsDto } from './map-bounds.dto.js';
 import { Type, Transform } from 'class-transformer';
 import {
   IsIn,
@@ -10,10 +11,14 @@ import {
   MaxLength,
   Min,
   Max,
+  Matches,
 } from 'class-validator';
 import { PaginationDto } from '../../users/dto/pagination.dto.js';
 import { INCIDENT_STATUSES, SEVERITIES } from '../../common/workflow.js';
-export class IncidentQueryDto extends PaginationDto {
+export class IncidentQueryDto extends IntersectionType(
+  PaginationDto,
+  MapBoundsDto,
+) {
   @ApiPropertyOptional({ enum: [...INCIDENT_STATUSES] })
   @IsOptional()
   @IsIn(INCIDENT_STATUSES)
@@ -44,9 +49,11 @@ export class IncidentQueryDto extends PaginationDto {
   @ApiPropertyOptional({ type: String, format: 'date-time' })
   @IsOptional()
   @IsISO8601({ strict: true })
+  @Matches(/^\d{4}-\d{2}-\d{2}(?:T.*(?:Z|[+-]\d{2}:\d{2}))?$/)
   from?: string;
   @ApiPropertyOptional({ type: String, format: 'date-time' })
   @IsOptional()
   @IsISO8601({ strict: true })
+  @Matches(/^\d{4}-\d{2}-\d{2}(?:T.*(?:Z|[+-]\d{2}:\d{2}))?$/)
   to?: string;
 }

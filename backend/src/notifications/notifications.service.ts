@@ -37,22 +37,30 @@ export class NotificationsService {
     );
     const notification = await repo.findOneBy({ id, userId });
     if (!notification) throw new NotFoundException('Không tìm thấy thông báo.');
-    await this.changed(userId);
+    await this.changed(userId, {
+      notificationId: notification.id,
+      readAt: notification.readAt,
+      allRead: false,
+    });
     return notification;
   }
   async readAll(userId: string) {
     const result = await this.db
       .getRepository(Notification)
       .update({ userId, isRead: false }, { isRead: true, readAt: new Date() });
-    await this.changed(userId);
+    await this.changed(userId, { allRead: true });
     return { updated: result.affected ?? 0 };
   }
-  private async changed(userId: string) {
+  private async changed(
+    userId: string,
+    change: { notificationId?: string; readAt?: Date | null; allRead: boolean },
+  ) {
     const unreadCount = await this.db
       .getRepository(Notification)
       .countBy({ userId, isRead: false });
     await this.gateway.emitToRooms([`user:${userId}`], 'notification:read', {
       unreadCount,
+      ...change,
     });
   }
 }

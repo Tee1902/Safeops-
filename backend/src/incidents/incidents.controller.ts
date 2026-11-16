@@ -20,12 +20,21 @@ import { UpdateIncidentDto } from './dto/update-incident.dto.js';
 import { IncidentsService } from './incidents.service.js';
 import { AssignmentNoteDto } from '../assignments/assignments.dto.js';
 import { PublicProjection } from '../common/response-serializer.interceptor.js';
+import {
+  IncidentExportService,
+  IncidentExportQueryDto,
+} from './incident-export.service.js';
+import { ApiOperation, ApiProduces } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 @ApiBearerAuth()
 @ApiTags('Incidents')
 @Roles('ADMIN', 'OPERATOR', 'SECURITY', 'REPORTER')
 @Controller('incidents')
 export class IncidentsController {
-  constructor(private readonly service: IncidentsService) {}
+  constructor(
+    private readonly service: IncidentsService,
+    private readonly exports: IncidentExportService,
+  ) {}
   @Post()
   async create(
     @Body() dto: CreateIncidentDto,
@@ -44,6 +53,33 @@ export class IncidentsController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.service.findAll(query, user);
+  }
+  @Get('map')
+  @PublicProjection()
+  @ApiOperation({
+    summary: 'Incident markers, filtered by viewport and current access rights',
+  })
+  map(
+    @Query() query: IncidentQueryDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.service.map(query, user);
+  }
+  @Get('export')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @Roles('ADMIN', 'OPERATOR')
+  @ApiProduces(
+    'text/csv',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  )
+  @ApiOperation({
+    summary: 'Export at most 10,000 matching incidents as CSV or Excel',
+  })
+  export(
+    @Query() query: IncidentExportQueryDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.exports.export(query, user);
   }
   @Get(':id')
   detail(

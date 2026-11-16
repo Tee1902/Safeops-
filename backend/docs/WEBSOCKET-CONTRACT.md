@@ -41,11 +41,13 @@ Server tự join `user:{uuid}` và `role:{role viết thường}`. Client không
 | `assignment:created` | `{assignmentId,incidentId,status}` | Các người có quyền nêu trên và nhân viên được giao |
 | `assignment:updated` | `{assignmentId,incidentId,status}` | Các người có quyền nêu trên và nhân viên của phân công vừa thay đổi |
 | `notification:created` | `{notification,unreadCount}` | Chỉ `user:{notification.userId}` |
-| `notification:read` | `{unreadCount}` | Các phiên của chính người nhận |
+| `notification:read` | `{unreadCount,allRead,notificationId?,readAt?}` | Các phiên của chính người nhận |
 | `security:location` | `{userId,assignmentId,incidentId,latitude,longitude,updatedAt}` | Chỉ Admin/Operator |
 | `security:location-cleared` | `{userId,assignmentId}` | Chỉ Admin/Operator |
 
 `notification` có cùng các trường như REST `/notifications`. Các event incident/assignment chỉ báo thay đổi; FE tải dữ liệu chi tiết bằng REST theo quyền hiện tại. Khi CANCELLED, Security nhận event phân công và thông báo cá nhân để xóa màn hình cũ; không còn nhận event incident qua phân công đó. Payload không chứa email, token, mô tả hay thông tin người dùng.
+
+Đọc một thông báo gửi `allRead:false,notificationId,readAt` với thời điểm đọc đầu tiên trong DB; các tab có thể cập nhật đúng dòng. Đọc tất cả gửi `allRead:true` cùng unreadCount. Các trường mới bổ sung vào payload cũ, không bỏ unreadCount. Trong trường hợp request/event đồng thời hoặc reconnect, tải lại REST để đối chiếu toàn bộ trạng thái.
 
 Các mutation create/update/verify/reject/assign/accept/start/complete/cancel/close chỉ gọi publisher **sau khi `await DataSource.transaction(...)` thành công**. Notifications được lưu cùng transaction. Rollback không phát sự kiện hoặc gửi email. Email lỗi không làm thất bại nghiệp vụ đã commit.
 

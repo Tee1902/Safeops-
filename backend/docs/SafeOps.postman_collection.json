@@ -562,6 +562,44 @@
           }
         },
         {
+          "name": "Incident markers, filtered by viewport and current access rights",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/incidents/map",
+            "description": "Incident markers, filtered by viewport and current access rights",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Export at most 10,000 matching incidents as CSV or Excel",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/incidents/export",
+            "description": "Export at most 10,000 matching incidents as CSV or Excel",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
           "name": "GET /api/incidents/{id}",
           "request": {
             "method": "GET",
@@ -989,6 +1027,25 @@
             "header": [],
             "url": "{{baseUrl}}/api/dashboard/summary",
             "description": "Tổng số sự cố theo trạng thái",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Statistics by status, severity, type and local calendar period; average processing times in seconds",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/dashboard/statistics",
+            "description": "Statistics by status, severity, type and local calendar period; average processing times in seconds",
             "auth": {
               "type": "bearer",
               "bearer": [

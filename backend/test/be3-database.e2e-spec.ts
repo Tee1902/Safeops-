@@ -25,6 +25,7 @@ import { UserTokenVersion1794220000000 } from '../src/database/migrations/179422
 import { Be1Foundation1794300000000 } from '../src/database/migrations/1794300000000-Be1Foundation.js';
 import { Be3NotificationPagination1794510000000 } from '../src/database/migrations/1794510000000-Be3NotificationPagination.js';
 import { Be3IncidentPagination1794510100000 } from '../src/database/migrations/1794510100000-Be3IncidentPagination.js';
+import { VietnameseSearch1794820000000 } from '../src/database/migrations/1794820000000-VietnameseSearch.js';
 import { MailService } from '../src/notifications/mail.service.js';
 import { testEnvironment } from './fixtures.js';
 
@@ -78,6 +79,7 @@ describe('BE3 PostgreSQL workflows and performance (isolated test schema)', () =
         Be1Foundation1794300000000,
         Be3NotificationPagination1794510000000,
         Be3IncidentPagination1794510100000,
+        VietnameseSearch1794820000000,
       ],
     }).initialize();
     await db.runMigrations();
@@ -275,7 +277,7 @@ describe('BE3 PostgreSQL workflows and performance (isolated test schema)', () =
       .patch('/api/notifications/read-all')
       .set('Authorization', auth('REPORTER'))
       .expect(200);
-    expect(await read).toEqual({ unreadCount: 0 });
+    expect(await read).toEqual({ unreadCount: 0, allRead: true });
     for (const socket of [reporter, operator, security, admin])
       socket.disconnect();
   });

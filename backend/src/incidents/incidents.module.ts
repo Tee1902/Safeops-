@@ -10,6 +10,7 @@ import { IncidentLog } from '../database/entities/incident-log.entity.js';
 
 import { IncidentsController } from './incidents.controller.js';
 import { IncidentsService } from './incidents.service.js';
+import { IncidentExportService } from './incident-export.service.js';
 import { WorkflowEventsModule } from '../gateway/workflow-events.module.js';
 
 @Module({
@@ -20,7 +21,7 @@ import { WorkflowEventsModule } from '../gateway/workflow-events.module.js';
     TypeOrmModule.forFeature([Incident, IncidentType, User, IncidentLog]),
   ],
   controllers: [IncidentsController],
-  providers: [IncidentsService],
+  providers: [IncidentsService, IncidentExportService],
   exports: [IncidentsService],
 })
 export class IncidentsModule {}

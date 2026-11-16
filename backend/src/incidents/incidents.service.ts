@@ -31,6 +31,7 @@ import { IncidentQueryDto } from './dto/incident-query.dto.js';
 import { PaginationDto } from '../users/dto/pagination.dto.js';
 import { WorkflowEventsService } from '../gateway/workflow-events.service.js';
 import { presentIncidentListItem } from './incident.presenter.js';
+import { applyMapBounds } from './dto/map-bounds.dto.js';
 @Injectable()
 export class IncidentsService {
   constructor(
@@ -124,10 +125,9 @@ export class IncidentsService {
     await this.events.committed(change, 'created', true);
     return change.incident;
   }
-  async findAll(query: IncidentQueryDto, user: AuthenticatedUser) {
+  filtered(query: IncidentQueryDto, user: AuthenticatedUser) {
     if (query.from && query.to && new Date(query.from) > new Date(query.to))
       throw new BadRequestException('from phải trước hoặc bằng to.');
-    const { page, limit } = query;
     const qb = this.dataSource
       .getRepository(Incident)
       .createQueryBuilder('incident');
@@ -164,13 +164,23 @@ export class IncidentsService {
       });
     if (query.search)
       qb.andWhere(
-        '(incident.title ILIKE :search OR incident.description ILIKE :search OR incident.address ILIKE :search)',
+        "safeops_fold(concat_ws(' ', incident.title, incident.description, incident.address)) LIKE safeops_fold(:search)",
         { search: `%${query.search.replace(/[\\%_]/g, '\\$&')}%` },
       );
     if (query.from)
-      qb.andWhere('incident.created_at >= :from', { from: query.from });
-    if (query.to) qb.andWhere('incident.created_at <= :to', { to: query.to });
-    const [items, total] = await qb
+      qb.andWhere('incident.created_at >= :from', {
+        from: new Date(query.from).toISOString(),
+      });
+    if (query.to)
+      qb.andWhere('incident.created_at <= :to', {
+        to: new Date(query.to).toISOString(),
+      });
+    applyMapBounds(qb, query);
+    return qb;
+  }
+  async findAll(query: IncidentQueryDto, user: AuthenticatedUser) {
+    const { page, limit } = query;
+    const [items, total] = await this.filtered(query, user)
       .orderBy('incident.created_at', 'DESC')
       .addOrderBy('incident.id', 'DESC')
       .offset((page - 1) * limit)
@@ -187,6 +197,42 @@ export class IncidentsService {
         item.incidentType = byId.get(item.incidentTypeId)!;
     }
     return paginated(items.map(presentIncidentListItem), total, page, limit);
+  }
+  async map(query: IncidentQueryDto, user: AuthenticatedUser) {
+    const { page, limit } = query;
+    const [items, total] = await this.filtered(query, user)
+      .select([
+        'incident.id',
+        'incident.title',
+        'incident.status',
+        'incident.severity',
+        'incident.incidentTypeId',
+        'incident.latitude',
+        'incident.longitude',
+        'incident.createdAt',
+        'incident.updatedAt',
+      ])
+      .orderBy('incident.created_at', 'DESC')
+      .addOrderBy('incident.id', 'DESC')
+      .offset((page - 1) * limit)
+      .limit(limit)
+      .getManyAndCount();
+    return paginated(
+      items.map((item) => ({
+        id: item.id,
+        title: item.title,
+        status: item.status,
+        severity: item.severity,
+        incidentTypeId: item.incidentTypeId,
+        latitude: Number(item.latitude),
+        longitude: Number(item.longitude),
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+      })),
+      total,
+      page,
+      limit,
+    );
   }
   async findOne(id: string, user: AuthenticatedUser) {
     const incident = await getIncident(this.dataSource.manager, id);

@@ -21,6 +21,7 @@ import { InitialSchema1794036197093 } from '../src/database/migrations/179403619
 import { CreateRevokedTokens1794183728109 } from '../src/database/migrations/1794183728109-CreateRevokedTokens.js';
 import { WorkflowIndexes1794211200000 } from '../src/database/migrations/1794211200000-WorkflowIndexes.js';
 import { UserTokenVersion1794220000000 } from '../src/database/migrations/1794220000000-UserTokenVersion.js';
+import { VietnameseSearch1794820000000 } from '../src/database/migrations/1794820000000-VietnameseSearch.js';
 
 describe('SafeOps workflow against PostgreSQL', () => {
   let app: INestApplication | undefined;
@@ -85,6 +86,7 @@ describe('SafeOps workflow against PostgreSQL', () => {
         WorkflowIndexes1794211200000,
         UserTokenVersion1794220000000,
         Be1Foundation1794300000000,
+        VietnameseSearch1794820000000,
       ],
     });
     await db.initialize();
